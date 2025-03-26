@@ -1,0 +1,149 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.33.0/min/vs/loader.min.js"></script>
+    <script>
+        let timeLeft = 3600; // 1 heure en secondes
+        let timerInterval;
+        let editorInstance;
+
+        function startTest() {
+            document.getElementById('instructions').classList.add('hidden');
+            document.getElementById('test-interface').classList.remove('hidden');
+            startTimer();
+            loadEditor();
+            startWebcam();
+            monitorWindowActions();
+            monitorTabChange();
+        }
+
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer').textContent = formatTime(timeLeft);
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    showAlert('Temps écoulé ! Test soumis automatiquement.', 'red');
+                    confirmSubmission();
+                }
+            }, 1000);
+        }
+
+        function formatTime(seconds) {
+            let min = Math.floor(seconds / 60);
+            let sec = seconds % 60;
+            return `${min}:${sec < 10 ? '0' : ''}${sec}`;
+        }
+
+        function loadEditor() {
+            require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.33.0/min/vs' } });
+            require(['vs/editor/editor.main'], function () {
+                editorInstance = monaco.editor.create(document.getElementById('editor'), {
+                    value: "// Écrivez votre code ici...",
+                    language: "javascript",
+                    theme: "vs-dark",
+                    automaticLayout: true
+                });
+            });
+        }
+
+        function confirmSubmission() {
+            if (confirm("Êtes-vous sûr de vouloir soumettre votre code ?")) {
+                submitTest();
+            }
+        }
+
+        function submitTest() {
+            showAlert('Votre code a été soumis !', 'green');
+            document.getElementById('editor').style.pointerEvents = 'none';
+            editorInstance.updateOptions({ readOnly: true });
+        }
+
+        function startWebcam() {
+            const video = document.getElementById('webcam');
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    video.srcObject = stream;
+                })
+                .catch(error => {
+                    showAlert('Impossible d\'accéder à la webcam !', 'red');
+                });
+        }
+
+        function monitorWindowActions() {
+            window.onbeforeunload = function (event) {
+                return "Êtes-vous sûr de vouloir quitter ? Cela mettra fin à votre test.";
+            };
+
+            window.onresize = function () {
+                if (window.outerWidth < screen.width || window.outerHeight < screen.height) {
+                    if (!confirm("Vous avez redimensionné la fenêtre, voulez-vous continuer le test ?")) {
+                        window.location.href = 'disqualified.html';
+                    }
+                }
+            };
+        }
+
+        function monitorTabChange() {
+            document.addEventListener("visibilitychange", function () {
+                if (document.hidden) {
+                    alert("Vous avez quitté l'application. Vous êtes disqualifié.");
+                    window.location.href = 'disqualified.html';
+                }
+            });
+        }
+
+        document.addEventListener('keydown', function (event) {
+            if (event.ctrlKey && (event.key === 'c' || event.key === 'v')) {
+                event.preventDefault();
+                showAlert('Copier-coller interdit !', 'yellow');
+            }
+        });
+
+        function showAlert(message, color) {
+            const alertBox = document.getElementById('alert-box');
+            alertBox.textContent = message;
+            alertBox.className = `p-3 mb-3 text-white text-center rounded-md bg-${color}-500`;
+            setTimeout(() => {
+                alertBox.textContent = '';
+                alertBox.className = '';
+            }, 5000);
+        }
+    </script>
+</head>
+
+<body class="h-screen flex flex-col items-center justify-center bg-gray-100">
+    <div id="instructions" class="w-full max-w-4xl bg-white p-10 shadow-lg rounded-lg text-center">
+        <h2 class="text-3xl font-semibold">Bienvenue sur DevSkill Test</h2>
+        <p class="text-gray-600 mt-4">Lisez attentivement les consignes avant de commencer votre test.</p>
+        <button onclick="startTest()" class="mt-6 bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600">Démarrer le test</button>
+    </div>
+
+    <div id="test-interface" class="w-full max-w-4xl bg-white p-10 shadow-lg rounded-lg hidden">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-semibold">Test en cours</h2>
+            <span id="timer" class="text-red-500 text-lg font-bold">60:00</span>
+        </div>
+        
+        <!-- Zone Webcam -->
+        <div class="flex justify-center mb-4">
+            <video id="webcam" class="w-32 h-32 border rounded-md" autoplay></video>
+        </div>
+        
+        <!-- Zone d'alertes -->
+        <div id="alert-box" class="p-3 mb-3 text-white text-center rounded-md"></div>
+        
+        <div class="mb-4">
+            <h3 class="text-lg font-semibold">Énoncé :</h3>
+            <p class="text-gray-700">Écrivez une fonction qui inverse une chaîne de caractères.</p>
+        </div>
+        <div id="editor" class="h-64 border rounded"></div>
+        <button onclick="confirmSubmission()" class="mt-6 bg-green-500 text-white px-6 py-2 rounded-md hover:bg-green-600">Soumettre</button>
+    </div>
+</body>
+
+</html>
